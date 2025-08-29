@@ -1,25 +1,55 @@
-
 'use client'
 import { useState } from 'react'
-import { supabase } from '../../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
-export default function Login(){
-  const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [error,setError]=useState<string|null>(null); const router=useRouter();
-  async function submit(e:React.FormEvent){ e.preventDefault(); setError(null);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password }); if(error) return setError(error.message);
-    const u = data.user; if(!u) return setError('Sem utilizador');
-    const { data: r } = await supabase.from('app_users').select('role').eq('id', u.id).maybeSingle();
-    const role=(r as any)?.role;
-    if(!role){ setError('Este utilizador ainda não tem perfil atribuído (admin/teacher/parent). Contacte a coordenação.'); return; }
-    router.push(role==='teacher'?'/teacher': role==='admin'?'/admin':'/parent');
+import { supabase } from '@/lib/supabaseClient'
+
+export const dynamic = 'force-dynamic'  // evita qualquer cache chata
+
+export default function LoginPage() {
+  const router = useRouter()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [msg, setMsg] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (loading) return
+    setMsg('')
+    setLoading(true)
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
+      // procurar o role e redirecionar
+      const uid = data.user?.id
+      if (!uid) throw new Error('Sessão inválida.')
+      const { data: r } = await supabase.from('app_users')
+        .select('role').eq('id', uid).maybeSingle()
+      const role = r?.role as 'admin'|'teacher'|'parent'|undefined
+      if (!role) { setMsg('Este utilizador ainda não tem perfil atribuído (admin/teacher/parent). Contacte a coordenação.'); return }
+      const to = role === 'admin' ? '/admin' : role === 'teacher' ? '/teacher' : '/parent'
+      router.push(to)
+      router.refresh()
+    } catch (err:any) {
+      setMsg(err.message || 'Falha no login.')
+    } finally {
+      setLoading(false)
+    }
   }
-  return (<section className="max-w-md mx-auto"><div className="card p-6 space-y-4">
-    <h1 className="text-xl font-semibold">Entrar</h1>
-    <form className="space-y-3" onSubmit={submit}>
-      <input className="input" type="email" placeholder="email" value={email} onChange={e=>setEmail(e.target.value)} />
-      <input className="input" type="password" placeholder="password" value={password} onChange={e=>setPassword(e.target.value)} />
-      <button className="btn btn-primary" type="submit">Entrar</button>
-    </form>
-    {error && <p className="text-sm text-red-600">{error}</p>}
-  </div></section>)
+
+  return (
+    <section className="max-w-xl mx-auto p-6 card">
+      <h1 className="text-3xl font-bold mb-4">Entrar</h1>
+      <form onSubmit={onSubmit} className="space-y-3">
+        <input className="input w-full" placeholder="email" value={email}
+               onChange={e=>setEmail(e.target.value)} />
+        <input className="input w-full" type="password" placeholder="password" value={password}
+               onChange={e=>setPassword(e.target.value)} />
+        <button type="submit" className="btn btn-primary" disabled={loading}>
+          {loading ? 'A entrar…' : 'Entrar'}
+        </button>
+      </form>
+      {msg && <p className="text-red-600 mt-3">{msg}</p>}
+    </section>
+  )
 }

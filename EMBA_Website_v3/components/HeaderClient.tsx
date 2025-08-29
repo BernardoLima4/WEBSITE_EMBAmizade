@@ -2,30 +2,29 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+
 type Role = 'admin'|'teacher'|'parent'|null
 
-export default function HeaderClient(){
+export default function HeaderClient() {
   const [email,setEmail] = useState<string|null>(null)
   const [role,setRole] = useState<Role>(null)
-  const [loading,setLoading] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
 
-  async function load(){
+  async function load() {
     const { data:{ user } } = await supabase.auth.getUser()
     setEmail(user?.email ?? null)
-    if (user){
-      let r: Role = null
-      const rpc = await supabase.rpc('my_role'); if (!rpc.error) r = (rpc.data as any) ?? null
-      if (!r) {
-        const q = await supabase.from('app_users').select('role').eq('id', user.id).maybeSingle()
-        r = (q.data?.role as any) ?? null
-      }
-      setRole(r)
-    } else {
-      setRole(null)
+    if (!user) { setRole(null); return }
+    let r: Role = null
+    try {
+      const rr = await supabase.rpc('my_role')
+      if (!rr.error && rr.data) r = rr.data as any
+    } catch {}
+    if (!r) {
+      const s = await supabase.from('app_users').select('role').eq('id', user.id).maybeSingle()
+      r = (s.data?.role as any) ?? null
     }
-    setLoading(false)
+    setRole(r)
   }
 
   useEffect(() => {
@@ -34,7 +33,7 @@ export default function HeaderClient(){
     return () => sub?.subscription.unsubscribe()
   }, [])
 
-  async function signOut(){
+  async function signOut() {
     await supabase.auth.signOut().catch(()=>{})
     router.push('/login'); router.refresh()
     setTimeout(()=>window.location.assign('/login'), 50)
@@ -44,9 +43,9 @@ export default function HeaderClient(){
 
   return (
     <div className="flex items-center gap-4">
-      {!loading && email ? (
+      {email ? (
         <>
-          <span className="text-sm text-slate-500">{role ? email : 'Perfil por atribuir'}</span>
+          <span className="text-sm text-slate-500">{role?email:'Perfil por atribuir'}</span>
           {role && pathname!==area && <a className="btn" href={area}>Ir para a minha área</a>}
           <button className="btn" onClick={signOut}>Sair</button>
         </>

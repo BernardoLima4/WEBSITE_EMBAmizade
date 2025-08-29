@@ -1,30 +1,27 @@
+// app/layout.tsx
+import './globals.css'
+import HeaderClient from '@/components/HeaderClient'
 
-import './globals.css';
-import HeaderClient from '../components/HeaderClient';
-
-export const metadata = {
-  title: 'Escola de Música Amizade',
-  description: 'Portal Escola de Música',
-};
+export const metadata = { title: 'Amizade', description: 'Escola de Música' }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-PT">
-      <body>
-        <header className="sticky top-0 z-10 bg-white/90 border-b">
-          <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <html lang="pt">
+      <body className="min-h-screen bg-slate-50 text-slate-900">
+        <header className="border-b bg-white">
+          <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl grid place-items-center text-white text-xl" style={{background:'var(--brand-primary)'}}>♪</div>
+              <div className="w-10 h-10 rounded-2xl bg-blue-700 grid place-items-center text-white">♪</div>
               <div>
-                <div className="text-xs text-slate-500 uppercase tracking-wide">Escola de Música</div>
-                <div className="text-lg font-semibold">Amizade</div>
+                <p className="text-xs uppercase tracking-wider text-slate-500">Escola de Música</p>
+                <p className="font-semibold">Amizade</p>
               </div>
             </div>
             <HeaderClient />
           </div>
         </header>
-        <main className="max-w-6xl mx-auto px-4 py-6">{children}</main>
+        <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
       </body>
     </html>
-  );
+  )
 }

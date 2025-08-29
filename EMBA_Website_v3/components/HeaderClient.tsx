@@ -1,56 +1,55 @@
+'use client'
+import { useEffect, useState } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import { supabase } from '@/lib/supabaseClient'
 
-'use client';
-
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '../lib/supabaseClient';
-
-type Role = 'admin' | 'teacher' | 'parent' | null;
-
-function routeForRole(role: Role) {
-  if (role === 'admin') return '/admin';
-  if (role === 'teacher') return '/teacher';
-  if (role === 'parent') return '/parent';
-  return '/login';
-}
+type Role = 'admin'|'teacher'|'parent'|null
 
 export default function HeaderClient() {
-  const [role, setRole] = useState<Role>(null);
-  const [isAuthed, setIsAuthed] = useState(false);
-  const router = useRouter();
+  const [email, setEmail] = useState<string | null>(null)
+  const [role, setRole]   = useState<Role>(null)
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+  const pathname = usePathname()
 
-  async function refreshSession() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setIsAuthed(false); setRole(null); return; }
-    setIsAuthed(true);
-    const { data } = await supabase.from('app_users').select('role').eq('id', user.id).maybeSingle();
-    setRole((data as any)?.role ?? null);
+  async function loadSessionAndRole() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      setEmail(user?.email ?? null)
+      if (!user) { setRole(null); return }
+      const { data: r } = await supabase.from('app_users')
+        .select('role').eq('id', user.id).maybeSingle()
+      setRole((r?.role as Role) ?? null)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
-    refreshSession();
-    const { data: sub } = supabase.auth.onAuthStateChange(() => refreshSession());
-    return () => { sub.subscription.unsubscribe(); };
-  }, []);
+    loadSessionAndRole()
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      // sempre que login/logout acontecer, volta a carregar
+      loadSessionAndRole()
+    })
+    return () => sub?.subscription.unsubscribe()
+  }, [])
 
   async function signOut() {
-    await supabase.auth.signOut();
-    setIsAuthed(false);
-    setRole(null);
-    router.push('/login');
+    try {
+      await supabase.auth.signOut()
+    } finally {
+      // força transição independente do router caso o cache prenda
+      router.push('/login')
+      router.refresh()
+      setTimeout(() => { window.location.assign('/login') }, 50)
+    }
   }
 
+  const area =
+    role === 'admin'   ? '/admin'   :
+    role === 'teacher' ? '/teacher' :
+    role === 'parent'  ? '/parent'  : '/login'
+
   return (
-    <nav className="flex items-center gap-3 text-sm">
-      {isAuthed ? (
-        <>
-          {role ? <Link className="btn" href={routeForRole(role)}>Área</Link> : <span className="text-slate-500">Perfil por atribuir</span>}
-          <button className="btn" onClick={signOut}>Sair</button>
-        </>
-      ) : (
-        <Link className="btn" href="/login">Entrar</Link>
-      )}
-    </nav>
-  );
-}
+    <div className="flex items-center gap-4">
+      {!loading && email ? (

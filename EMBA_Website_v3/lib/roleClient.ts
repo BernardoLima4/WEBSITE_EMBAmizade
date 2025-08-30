@@ -47,3 +47,4 @@ export async function fetchRoleWithRetry(): Promise<AppRole | null> {
   cached = { role, at: now }
   return role
 }
+export default fetchRoleWithRetry;

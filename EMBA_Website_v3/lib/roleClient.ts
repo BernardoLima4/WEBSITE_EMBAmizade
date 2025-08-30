@@ -6,41 +6,41 @@ import { supabase } from './supabaseClient'
 export type AppRole = 'admin' | 'teacher' | 'parent'
 
 /**
- * Devolve o papel do utilizador autenticado (ou null se não houver sessão).
- * Primeiro tenta uma RPC 'current_user_role' (se existir); caso contrário,
- * consulta a tabela public.app_users.
+ * Lê o papel do utilizador autenticado (ou null se não houver sessão).
+ * Tenta uma RPC 'current_user_role' se existir; caso contrário usa a tabela public.app_users.
  */
 export async function fetchUserRole(): Promise<AppRole | null> {
-  // 1) Obter o utilizador atual
-  const { data: { user }, error: authErr } = await supabase.auth.getUser()
+  // Obtém o ID do utilizador de forma segura
+  const { data, error: authErr } = await supabase.auth.getUser()
   if (authErr) {
     console.warn('getUser error:', authErr)
     return null
   }
-  if (!user) return null
+  const userId = data?.user?.id
+  if (!userId) return null
 
-  // 2) (Opcional) tentar RPC se a tiveres criado; ignorar se não existir
+  // Tentativa opcional: RPC (ignora se não existir)
   try {
-    const { data, error } = await supabase.rpc('current_user_role')
-    if (!error && data) return data as AppRole
+    const { data: r1, error: e1 } = await supabase.rpc('current_user_role')
+    if (!e1 && r1) return r1 as AppRole
   } catch {
-    // sem RPC? segue para a query normal
+    // sem RPC -> continua para a query normal
   }
 
-  // 3) Fallback: ler da tabela app_users
-  const { data, error } = await supabase
+  // Fallback: ler de app_users
+  const { data: r2, error: e2 } = await supabase
     .from('app_users')
     .select('role')
-    .eq('id', user.id)        // <- user está garantidamente definido aqui
+    .eq('id', userId) // <- usamos userId, nunca 'user.id' direto
     .maybeSingle()
 
-  if (error) {
-    console.warn('role query error:', error)
+  if (e2) {
+    console.warn('role query error:', e2)
     return null
   }
 
-  return (data?.role as AppRole) ?? null
+  return (r2?.role as AppRole) ?? null
 }
 
-// Mantém um default export para evitar quebras onde é importado por defeito
+// manter default export para imports existentes
 export default fetchUserRole

@@ -1,45 +1,31 @@
+// app/login/page.tsx
 'use client'
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
-import { fetchRoleWithRetry, AppRole } from '../../lib/roleClient'
+import fetchRoleWithRetry, { clearRoleCache } from '../../lib/roleClient'
+import { useState } from 'react'
 
-export default function LoginPage(){
+export default function LoginPage() {
   const router = useRouter()
-  const [email,setEmail] = useState('')
-  const [password,setPassword] = useState('')
-  const [msg,setMsg] = useState('')
-  const [loading,setLoading] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
 
-  async function signIn(){
-    if (loading) return
-    setMsg(''); setLoading(true)
-    try{
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
-      if (!data.user) throw new Error('Sessão inválida.')
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      setLoading(false)
+      alert('Credenciais inválidas.')
+      return
+    }
 
-      const role = await fetchRoleWithRetry() as AppRole|null
-      if (!role) { setMsg('Este utilizador ainda não tem perfil atribuído (admin/teacher/parent). Contacte a coordenação.'); return }
-
-      const to = role==='admin'?'/admin':role==='teacher'?'/teacher':'/parent'
-      router.push(to); router.refresh()
-    }catch(e:any){
-      setMsg(e.message || 'Falha no login.')
-    }finally{ setLoading(false) }
+    // limpa cache e NÃO espera por role aqui
+    clearRoleCache()
+    router.replace('/')   // segue já para a home
+    // não precisamos de setLoading(false) porque vamos navegar
   }
 
-  return (
-    <section className="max-w-xl mx-auto p-6 card">
-      <h1 className="text-3xl font-bold mb-4">Entrar</h1>
-      <div className="space-y-3">
-        <input className="input w-full" placeholder="email" value={email} onChange={e=>setEmail(e.target.value)} />
-        <input className="input w-full" type="password" placeholder="password" value={password} onChange={e=>setPassword(e.target.value)} />
-        <button className="btn btn-primary" onClick={signIn} disabled={loading}>
-          {loading ? 'A entrar…' : 'Entrar'}
-        </button>
-      </div>
-      {msg && <p className="text-red-600 mt-3">{msg}</p>}
-    </section>
-  )
+  // ... JSX com botão a mostrar "A entrar..." quando loading===true
 }

@@ -1,59 +1,59 @@
-// lib/roleClient.ts
-'use client'
-import { supabase } from './supabaseClient'
+// EMBA_Website_v3/lib/roleClient.ts
+'use client';
 
-export type AppRole = 'admin' | 'teacher' | 'parent'
+import { supabase } from './supabaseClient';
 
-let cachedRole: AppRole | null | undefined // undefined = ainda não lido
-let inflight: Promise<AppRole | null> | null = null
+export type AppRole = 'admin' | 'teacher' | 'parent';
+
+// cache simples em memória do browser
+let _cachedRole: AppRole | null | undefined = undefined;
 
 export function clearRoleCache() {
-  cachedRole = undefined
-  inflight = null
+  _cachedRole = undefined;
 }
 
-async function readRoleOnce(): Promise<AppRole | null> {
-  // 1) user atual
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+/** Obtém o papel do utilizador autenticado (ou null se não autenticado). */
+export async function fetchRoleWithRetry(): Promise<AppRole | null> {
+  // se já tínhamos cache (inclui null), devolve
+  if (_cachedRole !== undefined) return _cachedRole ?? null;
+
+  // 1) utilizador atual
+  const { data: { user }, error: getUserErr } = await supabase.auth.getUser();
+  if (getUserErr) {
+    console.warn('getUser error:', getUserErr);
+    _cachedRole = null;
+    return null;
+  }
+  if (!user) {
+    _cachedRole = null;
+    return null;
+  }
 
   // 2) tenta RPC (se existir)
   try {
-    const { data, error } = await supabase.rpc('current_user_role')
-    if (!error && data) return data as AppRole
-  } catch {}
+    const { data, error } = await supabase.rpc('current_user_role');
+    if (!error && data) {
+      _cachedRole = data as AppRole;
+      return _cachedRole;
+    }
+  } catch { /* sem stress */ }
 
   // 3) fallback: tabela app_users
-  const { data, error } = await supabase
+  const r2 = await supabase
     .from('app_users')
     .select('role')
     .eq('id', user.id)
-    .maybeSingle()
+    .maybeSingle();
 
-  if (error) {
-    console.warn('role table error:', error)
-    return null
+  if (r2.error) {
+    console.warn('role query error:', r2.error);
+    _cachedRole = null;
+    return null;
   }
-  return (data?.role as AppRole) ?? null
+
+  _cachedRole = (r2.data?.role as AppRole | undefined) ?? null;
+  return _cachedRole;
 }
 
-function withTimeout<T>(p: Promise<T>, ms = 2000): Promise<T> {
-  return new Promise((resolve) => {
-    let done = false
-    const t = setTimeout(() => {
-      if (!done) resolve(null as any)
-    }, ms)
-    p.then(v => { done = true; clearTimeout(t); resolve(v) })
-     .catch(() => { done = true; clearTimeout(t); resolve(null as any) })
-  })
-}
-
-export async function fetchRoleWithRetry(): Promise<AppRole | null> {
-  if (cachedRole !== undefined) return cachedRole ?? null
-  if (!inflight) inflight = withTimeout(readRoleOnce(), 2000) // nunca fica pendente para sempre
-  cachedRole = await inflight
-  inflight = null
-  return cachedRole ?? null
-}
-
-export default fetchRoleWithRetry
+// export default + named para não dar mais desencontros nos imports
+export default fetchRoleWithRetry;

@@ -1,7 +1,8 @@
 'use client'
+
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
-import { fetchRoleWithRetry, AppRole } from '../../lib/roleClient'
+import { fetchRoleWithRetry } from '../../lib/roleClient'
 
 export default function LoginPage(){
   const router = useRouter()
@@ -9,13 +10,17 @@ export default function LoginPage(){
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const form = new FormData(e.currentTarget)
-    const email = String(form.get('email')||'')
-    const password = String(form.get('password')||'')
+    const email = String(form.get('email') || '')
+    const password = String(form.get('password') || '')
+
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) { alert(error.message); return }
+    if (error) {
+      alert(error.message)
+      return
+    }
 
     const role = await fetchRoleWithRetry()
-    router.push(role==='admin' ? '/admin' : role==='teacher' ? '/teacher' : '/parent')
+    router.push(role === 'admin' ? '/admin' : role === 'teacher' ? '/teacher' : '/parent')
   }
 
   return (

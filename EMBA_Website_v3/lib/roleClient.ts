@@ -21,7 +21,7 @@ export async function fetchRoleWithRetry(): Promise<AppRole | null> {
     return null
   }
 
-  // 1) tenta RPC se existir
+  // 1) tenta função SQL (se existir no projeto)
   try {
     const r1 = await supabase.rpc('current_user_role')
     if (!r1.error && r1.data) {
@@ -31,17 +31,19 @@ export async function fetchRoleWithRetry(): Promise<AppRole | null> {
     }
   } catch {}
 
-  // 2) fallback: tabela app_users
-  const r2 = await supabase.from('app_users').select('role').eq('id', user.id).maybeSingle()
+  // 2) fallback: lê da tabela app_users
+  const r2 = await supabase
+    .from('app_users')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle()
+
   if (r2.error) {
     cached = { role: null, at: now }
     return null
   }
+
   const role = (r2.data?.role ?? null) as AppRole | null
   cached = { role, at: now }
   return role
 }
-
-// compat / import default
-export const fetchUserRole = fetchRoleWithRetry
-export default fetchUserRole

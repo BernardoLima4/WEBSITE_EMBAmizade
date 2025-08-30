@@ -5,36 +5,50 @@ import { supabase } from './supabaseClient'
 
 export type AppRole = 'admin' | 'teacher' | 'parent'
 
-export async function fetchUserRole(): Promise<AppRole | null> {
-  // 1) Utilizador autenticado
-  const { data: userData, error: authErr } = await supabase.auth.getUser()
-  if (authErr) {
-    console.warn('getUser error:', authErr)
-    return null
-  }
-  const userId = userData?.user?.id
-  if (!userId) return null
+// cache simples em memória (lado do cliente)
+let roleCache: AppRole | null | undefined
 
-  // 2) Tenta RPC (se existir)
+/** Obtém o papel do utilizador autenticado. */
+export async function fetchUserRole(): Promise<AppRole | null> {
+  // 1) devolve do cache, se já tivermos
+  if (roleCache !== undefined) return roleCache
+
+  // 2) utilizador autenticado?
+  const { data: { user }, error: authErr } = await supabase.auth.getUser()
+  if (authErr || !user) {
+    roleCache = null
+    return roleCache
+  }
+
+  // 3) tentar RPC opcional (se existir)
   try {
     const { data, error } = await supabase.rpc('current_user_role')
-    if (!error && data) return data as AppRole
+    if (!error && data) {
+      roleCache = data as AppRole
+      return roleCache
+    }
   } catch {
-    // ignora e segue para fallback
+    // ignora se a RPC não existir
   }
 
-  // 3) Fallback: tabela app_users
-  const { data: row, error } = await supabase
+  // 4) fallback: tabela app_users
+  const r2 = await supabase
     .from('app_users')
     .select('role')
-    .eq('id', userId)
+    .eq('id', user.id)
     .maybeSingle()
 
-  if (error) {
-    console.warn('role query error:', error)
-    return null
-  }
-  return (row?.role as AppRole) ?? null
+  roleCache = r2.error ? null : ((r2.data?.role as AppRole) ?? null)
+  return roleCache
 }
 
+/** Limpa o cache (por ex., depois de logout). */
+export function clearRoleCache() {
+  roleCache = undefined
+}
+
+/** Compatibilidade com código antigo */
+export const fetchRoleWithRetry = fetchUserRole
+
+// opcional: export default para quem fizer import default
 export default fetchUserRole

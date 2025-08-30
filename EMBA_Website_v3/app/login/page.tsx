@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
-import fetchUserRole, { AppRole } from '../../lib/roleClient';
+import { fetchRoleWithRetry, AppRole } from '../../lib/roleClient';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,7 +27,7 @@ export default function LoginPage() {
       if (error) throw error;
       console.log('[login] session ok', data?.session?.user?.id);
 
-      const role = await fetchUserRole();
+      const role = await fetchRoleWithRetry();
       console.log('[login] role =', role);
 
       if (role === 'admin') router.replace('/admin');

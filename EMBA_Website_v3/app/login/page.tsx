@@ -1,81 +1,79 @@
-// EMBA_Website_v3/app/login/page.tsx
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
-import fetchRoleWithRetry, { AppRole, clearRoleCache } from '../../lib/roleClient';
+import fetchUserRole, { AppRole } from '../../lib/roleClient';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail]       = useState('');
+  const [email, setEmail] = useState('admin@amizade.pt');
   const [password, setPassword] = useState('');
-  const [loading, setLoading]   = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleSignIn = async () => {
-    if (loading) return;
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setErrorMsg(null);
     setLoading(true);
-    console.log('[login] submit', { email });
-
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        console.error('[login] supabase error:', error);
-        alert(error.message);
-        return;
-      }
-      console.log('[login] ok, user:', data.user?.id);
+      console.log('[login] start', { email });
 
-      // limpar cache de role (por via das dúvidas)
-      clearRoleCache();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      const role = await fetchRoleWithRetry();
-      console.log('[login] role:', role);
+      if (error) throw error;
+      console.log('[login] session ok', data?.session?.user?.id);
 
-      const goto = (r: AppRole | null) =>
-        r === 'admin' ? '/admin' :
-        r === 'teacher' ? '/teacher' :
-        r === 'parent' ? '/parent' : '/';
+      const role = await fetchUserRole();
+      console.log('[login] role =', role);
 
-      router.replace(goto(role));
-    } catch (e: any) {
-      console.error('[login] unexpected:', e);
-      alert(e?.message ?? 'Erro inesperado a entrar');
+      if (role === 'admin') router.replace('/admin');
+      else if (role === 'teacher') router.replace('/teacher');
+      else if (role === 'parent') router.replace('/parent');
+      else setErrorMsg('Este utilizador ainda não tem perfil atribuído (admin/teacher/parent).');
+
+    } catch (err: any) {
+      console.error('[login] failed', err);
+      setErrorMsg(err?.message ?? 'Falha no login.');
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
     <div className="mx-auto max-w-3xl p-6">
-      <h1 className="text-4xl font-semibold mb-6">Entrar</h1>
+      <h1 className="text-4xl font-bold mb-6">Entrar</h1>
 
-      <div className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-4">
         <input
           type="email"
-          placeholder="Email"
-          className="w-full rounded-lg border p-3"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={e => setEmail(e.target.value)}
+          className="w-full rounded-md border p-3"
+          placeholder="email"
         />
-
         <input
           type="password"
-          placeholder="Password"
-          className="w-full rounded-lg border p-3"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={e => setPassword(e.target.value)}
+          className="w-full rounded-md border p-3"
+          placeholder="password"
         />
-
         <button
-          type="button"               // <- importante: evita submit do <form>
-          onClick={handleSignIn}      // <- garante que o clique dispara JS
+          type="submit"
           disabled={loading}
-          className="rounded-xl bg-blue-600 px-6 py-3 text-white disabled:opacity-60"
+          className="rounded-md bg-blue-700 px-5 py-3 text-white disabled:opacity-60"
         >
-          {loading ? 'A entrar...' : 'Entrar'}
+          {loading ? 'A entrar…' : 'Entrar'}
         </button>
-      </div>
+
+        {errorMsg && (
+          <p className="text-red-600">{errorMsg}</p>
+        )}
+      </form>
     </div>
   );
 }

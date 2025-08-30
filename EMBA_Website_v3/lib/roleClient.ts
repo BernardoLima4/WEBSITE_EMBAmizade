@@ -15,15 +15,15 @@ export async function fetchUserRole(): Promise<AppRole | null> {
   const userId = userData?.user?.id
   if (!userId) return null
 
-  // 2) Tenta RPC (se existir). Ignora se não houver.
+  // 2) Tenta RPC (se existir)
   try {
     const { data, error } = await supabase.rpc('current_user_role')
     if (!error && data) return data as AppRole
   } catch {
-    /* segue para fallback */
+    // ignora e segue para fallback
   }
 
-  // 3) Fallback: lê de app_users
+  // 3) Fallback: tabela app_users
   const { data: row, error } = await supabase
     .from('app_users')
     .select('role')

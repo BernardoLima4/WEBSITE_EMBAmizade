@@ -1,11 +1,9 @@
-// EMBA_Website_v3/lib/roleClient.ts
 'use client'
 
 import { supabase } from './supabaseClient'
 
 export type AppRole = 'admin' | 'teacher' | 'parent'
 
-// cache simples para reduzir chamadas ao Supabase
 let cached: { role: AppRole | null; at: number } | null = null
 const TTL_MS = 30_000
 
@@ -17,19 +15,13 @@ export async function fetchRoleWithRetry(): Promise<AppRole | null> {
   const now = Date.now()
   if (cached && now - cached.at < TTL_MS) return cached.role
 
-  // 1) utilizador autenticado
   const { data: { user }, error: authErr } = await supabase.auth.getUser()
-  if (authErr) {
-    console.warn('auth.getUser error:', authErr)
-    cached = { role: null, at: now }
-    return null
-  }
-  if (!user) {
+  if (authErr || !user) {
+    if (authErr) console.warn('auth.getUser error:', authErr)
     cached = { role: null, at: now }
     return null
   }
 
-  // 2) tenta RPC (se existir)
   try {
     const r1 = await supabase.rpc('current_user_role')
     if (!r1.error && r1.data) {
@@ -37,11 +29,8 @@ export async function fetchRoleWithRetry(): Promise<AppRole | null> {
       cached = { role, at: now }
       return role
     }
-  } catch {
-    // ignora e passa ao fallback
-  }
+  } catch {}
 
-  // 3) fallback: lê da tabela app_users
   const r2 = await supabase
     .from('app_users')
     .select('role')

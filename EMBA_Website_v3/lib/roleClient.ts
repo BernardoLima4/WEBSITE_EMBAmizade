@@ -6,7 +6,7 @@ import { supabase } from './supabaseClient'
 export type AppRole = 'admin' | 'teacher' | 'parent'
 
 export async function fetchUserRole(): Promise<AppRole | null> {
-  // 1) Obter o utilizador autenticado de forma typesafe
+  // 1) Utilizador autenticado
   const { data: userData, error: authErr } = await supabase.auth.getUser()
   if (authErr) {
     console.warn('getUser error:', authErr)
@@ -15,15 +15,15 @@ export async function fetchUserRole(): Promise<AppRole | null> {
   const userId = userData?.user?.id
   if (!userId) return null
 
-  // 2) Tentar RPC (se existir no teu projeto)
+  // 2) Tenta RPC (se existir). Ignora se não houver.
   try {
     const { data, error } = await supabase.rpc('current_user_role')
     if (!error && data) return data as AppRole
   } catch {
-    // ignora, seguimos para fallback
+    /* segue para fallback */
   }
 
-  // 3) Fallback: ler papel na app_users, garantindo userId definido
+  // 3) Fallback: lê de app_users
   const { data: row, error } = await supabase
     .from('app_users')
     .select('role')
@@ -37,5 +37,4 @@ export async function fetchUserRole(): Promise<AppRole | null> {
   return (row?.role as AppRole) ?? null
 }
 
-// Mantém também o default export para quem importar por defeito
 export default fetchUserRole

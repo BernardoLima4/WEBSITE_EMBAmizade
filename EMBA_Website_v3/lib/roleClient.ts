@@ -5,7 +5,7 @@ import { supabase } from './supabaseClient'
 
 export type AppRole = 'admin' | 'teacher' | 'parent'
 
-// cache simples para reduzir chamadas
+// cache simples para reduzir chamadas ao Supabase
 let cached: { role: AppRole | null; at: number } | null = null
 const TTL_MS = 30_000
 
@@ -38,7 +38,7 @@ export async function fetchRoleWithRetry(): Promise<AppRole | null> {
       return role
     }
   } catch {
-    // ignora e vai ao fallback
+    // ignora e passa ao fallback
   }
 
   // 3) fallback: lê da tabela app_users

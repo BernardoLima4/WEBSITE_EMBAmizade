@@ -11,6 +11,12 @@ export function clearRoleCache() {
   cached = null
 }
 
+/**
+ * Obtém o role do utilizador autenticado.
+ * 1) tenta a função RPC current_user_role (se existir)
+ * 2) senão, lê de app_users
+ * Mantém um cache leve por 30s para evitar sobrecarga.
+ */
 export async function fetchRoleWithRetry(): Promise<AppRole | null> {
   const now = Date.now()
   if (cached && now - cached.at < TTL_MS) return cached.role
@@ -22,6 +28,7 @@ export async function fetchRoleWithRetry(): Promise<AppRole | null> {
     return null
   }
 
+  // 1) Tentar via RPC (se tiveres criado a função no SQL)
   try {
     const r1 = await supabase.rpc('current_user_role')
     if (!r1.error && r1.data) {
@@ -29,8 +36,11 @@ export async function fetchRoleWithRetry(): Promise<AppRole | null> {
       cached = { role, at: now }
       return role
     }
-  } catch {}
+  } catch {
+    // ignora: passa ao plano B
+  }
 
+  // 2) Plano B: ler da tabela app_users
   const r2 = await supabase
     .from('app_users')
     .select('role')
@@ -47,4 +57,7 @@ export async function fetchRoleWithRetry(): Promise<AppRole | null> {
   cached = { role, at: now }
   return role
 }
-export default fetchRoleWithRetry;
+
+/** Alias para compatibilidade com imports antigos (default). */
+export const fetchUserRole = fetchRoleWithRetry
+export default fetchUserRole

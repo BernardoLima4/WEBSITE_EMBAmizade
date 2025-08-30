@@ -2,42 +2,14 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
-
-async function getRoleWithRetry(userId: string){
-  // 1) tenta RPC (ignora RLS)
-  let role: 'admin'|'teacher'|'parent'|null = null
-  let status = 0
-
-  try {
-    const r1 = await supabase.rpc('my_role')
-    if (!r1.error && r1.data) return r1.data as any
-    // se houve erro, tenta SELECT normal
-  } catch {}
-
-  try {
-    const r2 = await supabase.from('app_users').select('role').eq('id', userId).maybeSingle()
-    // @ts-ignore
-    status = (r2 as any).status ?? 200
-    role = (r2.data?.role as any) ?? null
-  } catch (e:any) {
-    // se for 500 (projeto acabou de “acordar”), espera e tenta 1x de novo
-    status = 500
-  }
-
-  if (!role && status === 500) {
-    await new Promise(r => setTimeout(r, 1500))
-    const r3 = await supabase.from('app_users').select('role').eq('id', userId).maybeSingle()
-    role = (r3.data?.role as any) ?? null
-  }
-  return role
-}
+import { fetchRoleWithRetry, AppRole } from '../../lib/roleClient'
 
 export default function LoginPage(){
   const router = useRouter()
-  const [email,setEmail]=useState('')
-  const [password,setPassword]=useState('')
-  const [msg,setMsg]=useState('')
-  const [loading,setLoading]=useState(false)
+  const [email,setEmail] = useState('')
+  const [password,setPassword] = useState('')
+  const [msg,setMsg] = useState('')
+  const [loading,setLoading] = useState(false)
 
   async function signIn(){
     if (loading) return
@@ -45,16 +17,13 @@ export default function LoginPage(){
     try{
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
-      const uid = data.user?.id
-      if (!uid) throw new Error('Sessão inválida.')
+      if (!data.user) throw new Error('Sessão inválida.')
 
-      const role = await getRoleWithRetry(uid)
-      if (!role){
-        setMsg('Este utilizador ainda não tem perfil atribuído (admin/teacher/parent). Contacte a coordenação.')
-        return
-      }
-      router.push(role==='admin'?'/admin':role==='teacher'?'/teacher':'/parent')
-      router.refresh()
+      const role = await fetchRoleWithRetry() as AppRole|null
+      if (!role) { setMsg('Este utilizador ainda não tem perfil atribuído (admin/teacher/parent). Contacte a coordenação.'); return }
+
+      const to = role==='admin'?'/admin':role==='teacher'?'/teacher':'/parent'
+      router.push(to); router.refresh()
     }catch(e:any){
       setMsg(e.message || 'Falha no login.')
     }finally{ setLoading(false) }

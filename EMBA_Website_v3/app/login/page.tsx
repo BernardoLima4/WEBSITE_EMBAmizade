@@ -1,11 +1,27 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
 import { fetchRoleWithRetry } from '../../lib/roleClient'
 
 export default function LoginPage(){
   const router = useRouter()
+
+  // Se já houver sessão, salta imediatamente para o dashboard certo
+  useEffect(() => {
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const role = await fetchRoleWithRetry()
+        const target =
+          role === 'admin'  ? '/admin'  :
+          role === 'teacher'? '/teacher':
+          role === 'parent' ? '/parent' : '/sem-perfil'
+        router.replace(target)
+      }
+    })()
+  }, [router])
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -20,7 +36,11 @@ export default function LoginPage(){
     }
 
     const role = await fetchRoleWithRetry()
-    router.push(role === 'admin' ? '/admin' : role === 'teacher' ? '/teacher' : '/parent')
+    const target =
+      role === 'admin'  ? '/admin'  :
+      role === 'teacher'? '/teacher':
+      role === 'parent' ? '/parent' : '/sem-perfil'
+    router.replace(target)
   }
 
   return (

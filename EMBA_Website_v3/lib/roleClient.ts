@@ -1,49 +1,42 @@
 'use client'
-
 import { supabase } from './supabaseClient'
 
 export type AppRole = 'admin' | 'teacher' | 'parent'
 
-let cached: { role: AppRole | null; at: number } | null = null
-const TTL_MS = 30_000
+let cachedRole: AppRole | null | undefined = undefined
+let lastUid: string | undefined
 
-export function clearRoleCache() {
-  cached = null
-}
+export async function fetchUserRole(): Promise<AppRole | null> {
+  // NÃO chama a API /auth/v1/user. Usa a sessão local.
+  const { data: sessionData } = await supabase.auth.getSession()
+  const uid = sessionData?.session?.user?.id
+  if (!uid) return null
 
-export async function fetchRoleWithRetry(): Promise<AppRole | null> {
-  const now = Date.now()
-  if (cached && now - cached.at < TTL_MS) return cached.role
-
-  const { data: { user }, error: authErr } = await supabase.auth.getUser()
-  if (authErr || !user) {
-    cached = { role: null, at: now }
-    return null
+  // cache simples por utilizador
+  if (cachedRole !== undefined && lastUid === uid) {
+    return cachedRole ?? null
   }
 
-  // 1) tenta função SQL (se existir no projeto)
-  try {
-    const r1 = await supabase.rpc('current_user_role')
-    if (!r1.error && r1.data) {
-      const role = r1.data as AppRole
-      cached = { role, at: now }
-      return role
-    }
-  } catch {}
-
-  // 2) fallback: lê da tabela app_users
-  const r2 = await supabase
+  // pergunta o papel na tabela app_users (RLS já criada permite ver a própria linha)
+  const { data, error } = await supabase
     .from('app_users')
     .select('role')
-    .eq('id', user.id)
+    .eq('id', uid)
     .maybeSingle()
 
-  if (r2.error) {
-    cached = { role: null, at: now }
+  if (error) {
+    console.warn('role query error', error)
+    cachedRole = null
+    lastUid = uid
     return null
   }
 
-  const role = (r2.data?.role ?? null) as AppRole | null
-  cached = { role, at: now }
-  return role
+  cachedRole = (data?.role as AppRole) ?? null
+  lastUid = uid
+  return cachedRole
+}
+
+export function clearRoleCache() {
+  cachedRole = undefined
+  lastUid = undefined
 }

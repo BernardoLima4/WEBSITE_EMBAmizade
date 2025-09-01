@@ -1,10 +1,11 @@
-// next.config.js (na raiz)
+// next.config.js
 const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   webpack: (config) => {
-    // Diz ao Webpack que "@/..." aponta para EMBA_Website_v3
+    // Mapeia "@/..." para a pasta onde estão os teus ficheiros
+    // ⚠️ Usa exatamente o nome da pasta: EMBA_Website_v3
     config.resolve.alias['@'] = path.join(__dirname, 'EMBA_Website_v3');
     return config;
   },

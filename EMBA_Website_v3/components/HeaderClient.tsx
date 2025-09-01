@@ -14,7 +14,8 @@ export default function HeaderClient() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setEmail(user?.email ?? null)
-      const r = await fetchRoleWithRetry()
+      const r = await fetchUserRole()
+
       setRole(r)
     })()
   }, [pathname])

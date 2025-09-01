@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import { fetchRoleWithRetry, clearRoleCache, AppRole } from '@/lib/roleClient'
 import { fetchUserRole, clearRoleCache, AppRole } from '@/lib/roleClient'
 
 export default function HeaderClient() {

@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
-import { fetchRoleWithRetry } from '../../lib/roleClient'
+import { fetchUserRole, AppRole } from '../../lib/roleClient'
 
 export default function LoginPage(){
   const router = useRouter()

@@ -1,16 +1,7 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root { --brand-primary:#1E40AF; --brand-bg:#F8FAFC; --brand-text:#0F172A; }
-html, body { background:var(--brand-bg); color:var(--brand-text); }
-.btn { @apply rounded-xl px-4 py-2 font-medium; }
-.btn-primary { background:var(--brand-primary); color:#fff; }
-.card { @apply rounded-2xl border border-slate-200 bg-white shadow-sm; }
-.input { @apply border border-slate-200 rounded-xl px-3 py-2 w-full; }
-.badge { @apply inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border; }
-.badge-blue { @apply bg-blue-100 border-blue-200 text-blue-800; }
-.badge-green { @apply bg-green-100 border-green-200 text-green-800; }
-.badge-amber { @apply bg-amber-100 border-amber-200 text-amber-800; }
-.badge-red { @apply bg-red-100 border-red-200 text-red-800; }
+/* opcional: base mínima */
+html, body, :root { height: 100%; }
+body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
